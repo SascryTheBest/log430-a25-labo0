@@ -77,16 +77,5 @@ jobs:
           PASS: ${{ secrets.SSH_PASSWORD }}
           PORT: ${{ secrets.SSH_PORT }}
         run: |
-          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22}" "$USER@$HOST" ^
-            powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\deploy_git_pull.ps1"
-
-      - name: Show deployed HEAD (optional)
-        if: always()
-        env:
-          HOST: ${{ secrets.DEPLOY_HOST }}
-          USER: ${{ secrets.DEPLOY_USER }}
-          PASS: ${{ secrets.SSH_PASSWORD }}
-          PORT: ${{ secrets.SSH_PORT }}
-        run: |
-          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22}" "$USER@$HOST" ^
-            powershell -NoProfile -Command "Get-Content 'C:\Users\Assal\apps\log430-a25-labo0\DEPLOY_SHA.txt'"
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22}" "$USER@$HOST" \
+            'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\deploy_git_pull.ps1"'
