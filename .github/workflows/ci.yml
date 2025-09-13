@@ -37,3 +37,41 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/src
         run: |
           pytest src/tests
+  deploy:
+    needs: tests
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build bundle (zip du dépôt)
+        run: git archive -o package.zip HEAD
+
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Copy bundle to Windows (SCP + mot de passe)
+        run: |
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" \
+          scp -o StrictHostKeyChecking=no -v package.zip \
+          "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/labo0.zip"
+
+      - name: Remote deploy on Windows (PowerShell via SSH + mot de passe)
+        env:
+          DEPLOY_APP_DIR: ${{ secrets.DEPLOY_APP_DIR }}
+        run: |
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" \
+          ssh -o StrictHostKeyChecking=no \
+          "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+          'powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+            $app = if ("${env:DEPLOY_APP_DIR}" -ne "") { "${env:DEPLOY_APP_DIR}" } else { "$env:USERPROFILE\\apps\\labo0" }; ^
+            New-Item -ItemType Directory -Force $app | Out-Null; ^
+            if (Test-Path "$env:USERPROFILE\\labo0.zip") { Remove-Item "$env:USERPROFILE\\labo0.zip" -Force }; ^
+            Move-Item "$env:USERPROFILE\\labo0.zip" "$app\\labo0.zip"; ^
+            if (Test-Path "$app\\*") { Remove-Item "$app\\*" -Recurse -Force -ErrorAction SilentlyContinue }; ^
+            Expand-Archive -Path "$app\\labo0.zip" -DestinationPath $app -Force; ^
+            if (Get-Command py -ErrorAction SilentlyContinue) { py -3.11 -m venv "$app\\.venv" } else { python -m venv "$app\\.venv" }; ^
+            & "$app\\.venv\\Scripts\\python.exe" -m pip install --upgrade pip; ^
+            & "$app\\.venv\\Scripts\\pip.exe" install -r "$app\\requirements.txt"; ^
+            & "$app\\.venv\\Scripts\\python.exe" "$app\\src\\calculator.py" addition 2 3; ^
+            Write-Host "Deploy OK -> $app" '
