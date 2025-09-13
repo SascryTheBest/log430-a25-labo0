@@ -38,6 +38,15 @@ def test_division_par_zero():
     my_calculator = Calculator()
     assert my_calculator.division(5, 0) == "Erreur : division par zéro"
 
+def test_ci_cd():
+    """ Test pour vérifier le pipeline CI/CD 
+    rien à voir avec la calculatrice
+    le test fait rien d'utile autre que me permettre de verifier que le pipeline CI/CD fonctionne pour l'instant
+    le test est dit reussi si dans le fichier "C:\Users\Assal\apps\log430-a25-labo0" on voit que le document est a jour
+    """
+    print("Test CI/CD réussi") # Juste pour vérifier le pipeline CI/CD
+
+
 """
 def test_donne_erreur():
     my_calculator = Calculator()
