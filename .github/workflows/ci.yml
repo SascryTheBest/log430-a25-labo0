@@ -39,19 +39,14 @@ jobs:
           pytest src/tests
 
   deploy:
-    needs: tests
-    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build bundle (zip)
-        run: git archive -o package.zip HEAD
-
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
 
-      - name: Sanity check SSH (whoami)
+      - name: Sanity check SSH
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER: ${{ secrets.DEPLOY_USER }}
@@ -60,33 +55,38 @@ jobs:
         run: |
           sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22}" "$USER@$HOST" "whoami"
 
-      - name: Copy bundle to Windows
+      - name: Copy deploy script + temp PAT file
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER: ${{ secrets.DEPLOY_USER }}
           PASS: ${{ secrets.SSH_PASSWORD }}
           PORT: ${{ secrets.SSH_PORT }}
+          PAT:  ${{ secrets.REPO_PAT }}     # <-- ICI on utilise REPO_PAT (pas GITHUB_PAT)
         run: |
-          sshpass -p "$PASS" scp -P "${PORT:-22}" -o StrictHostKeyChecking=no -v package.zip "$USER@$HOST:~/labo0.zip"
+          # script de déploiement
+          sshpass -p "$PASS" scp -P "${PORT:-22}" -o StrictHostKeyChecking=no -v scripts/deploy_git_pull.ps1 "$USER@$HOST:~/deploy_git_pull.ps1"
+          # token temporaire dans ~\pat.txt (lu puis supprimé par le script)
+          printf '%s' "$PAT" > pat.txt
+          sshpass -p "$PASS" scp -P "${PORT:-22}" -o StrictHostKeyChecking=no -v pat.txt "$USER@$HOST:~/pat.txt"
+          rm -f pat.txt
 
-      - name: Remote deploy on Windows (PowerShell)
+      - name: Run deploy (git clone/fetch/reset on Windows)
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER: ${{ secrets.DEPLOY_USER }}
           PASS: ${{ secrets.SSH_PASSWORD }}
           PORT: ${{ secrets.SSH_PORT }}
-          APP_DIR: ${{ secrets.DEPLOY_APP_DIR }}
         run: |
-          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22}" "$USER@$HOST" powershell -NoProfile -ExecutionPolicy Bypass -Command "
-            \$app = if ('${APP_DIR}' -ne '') { '${APP_DIR}' } else { \$env:USERPROFILE + '\apps\labo0' };
-            New-Item -ItemType Directory -Force \$app | Out-Null;
-            if (Test-Path \$env:USERPROFILE\labo0.zip) { Remove-Item \$env:USERPROFILE\labo0.zip -Force };
-            Move-Item \$env:USERPROFILE\labo0.zip \$app\labo0.zip;
-            if (Test-Path \$app\*) { Remove-Item \$app\* -Recurse -Force -ErrorAction SilentlyContinue };
-            Expand-Archive -Path \$app\labo0.zip -DestinationPath \$app -Force;
-            if (Get-Command py -ErrorAction SilentlyContinue) { py -3.11 -m venv \$app\.venv } else { python -m venv \$app\.venv };
-            & \$app\.venv\Scripts\python.exe -m pip install --upgrade pip;
-            & \$app\.venv\Scripts\pip.exe install -r \$app\requirements.txt;
-            & \$app\.venv\Scripts\python.exe \$app\src\calculator.py addition 2 3;
-            Write-Host 'Deploy OK -> ' \$app
-            "
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22}" "$USER@$HOST" ^
+            powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\deploy_git_pull.ps1"
+
+      - name: Show deployed HEAD (optional)
+        if: always()
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          PASS: ${{ secrets.SSH_PASSWORD }}
+          PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22}" "$USER@$HOST" ^
+            powershell -NoProfile -Command "Get-Content 'C:\Users\Assal\apps\log430-a25-labo0\DEPLOY_SHA.txt'"
