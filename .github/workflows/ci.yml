@@ -55,7 +55,7 @@ jobs:
           PASS: ${{ secrets.SSH_PASSWORD }}
           PORT: ${{ secrets.SSH_PORT }}
         run: |
-          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22}" "$USER@$HOST" "whoami"
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22222}" "$USER@$HOST" "whoami"
 
       - name: Copy deploy script + temp PAT file
         env:
@@ -65,9 +65,9 @@ jobs:
           PORT: ${{ secrets.SSH_PORT }}
           PAT:  ${{ secrets.REPO_PAT }}   # <-- your secret (not starting with GITHUB_)
         run: |
-          sshpass -p "$PASS" scp -P "${PORT:-22}" -o StrictHostKeyChecking=no -v scripts/deploy_git_pull.ps1 "$USER@$HOST:~/deploy_git_pull.ps1"
+          sshpass -p "$PASS" scp -P "${PORT:-22222}" -o StrictHostKeyChecking=no -v scripts/deploy_git_pull.ps1 "$USER@$HOST:~/deploy_git_pull.ps1"
           printf '%s' "$PAT" > pat.txt
-          sshpass -p "$PASS" scp -P "${PORT:-22}" -o StrictHostKeyChecking=no -v pat.txt "$USER@$HOST:~/pat.txt"
+          sshpass -p "$PASS" scp -P "${PORT:-22222}" -o StrictHostKeyChecking=no -v pat.txt "$USER@$HOST:~/pat.txt"
           rm -f pat.txt
 
       - name: Run deploy (git clone/fetch/reset on Windows)
@@ -77,5 +77,5 @@ jobs:
           PASS: ${{ secrets.SSH_PASSWORD }}
           PORT: ${{ secrets.SSH_PORT }}
         run: |
-          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22}" "$USER@$HOST" \
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22222}" "$USER@$HOST" \
             'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Assal\deploy_git_pull.ps1"'
