@@ -1,6 +1,7 @@
 # scripts/deploy_git_pull.ps1
 # Met à jour le code dans C:\Users\Assal\apps\log430-a25-labo0 en clonant la 1re fois puis fetch/reset.
 # Si -Token est vide, lit ~\pat.txt (puis supprime le fichier).
+# should work now
 
 param(
   [string]$Token = ""
