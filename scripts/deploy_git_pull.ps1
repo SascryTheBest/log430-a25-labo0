@@ -1,60 +1,67 @@
 # scripts/deploy_git_pull.ps1
-# Met à jour le code dans C:\Users\Assal\apps\log430-a25-labo0 en clonant la 1re fois puis fetch/reset.
-# Si -Token est vide, lit ~\pat.txt (puis supprime le fichier).
-# should work now
+# Non-interactive deploy: clone once, then fetch/reset using a PAT without storing credentials.
 
 param(
-  [string]$Token = ""
+  [string]$Token = ""   # read from ~/pat.txt if not provided
 )
 
 $ErrorActionPreference = "Stop"
 
-# --------- CONFIG SPÉCIFIQUE À TON CAS ---------
-$RepoUrl = "https://github.com/SascryTheBest/log430-a25-labo0"
+# ---- CONFIG ----
+$RepoUrl = "https://github.com/SascryTheBest/log430-a25-labo0.git"
 $Branch  = "main"
 $AppDir  = "C:\Users\Assal\apps\log430-a25-labo0"
-# -----------------------------------------------
+# ---------------
 
-if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-  throw "Git n'est pas installé sur le serveur Windows."
-}
+# Make git non-interactive; never prompt/persist creds
+$env:GIT_TERMINAL_PROMPT = "0"
+$env:GCM_INTERACTIVE     = "Never"
 
-# Option: lire le token depuis un fichier déposé par la CI (et le supprimer)
+# Option: read token from temp file dropped by CI, then remove it
 if (-not $Token) {
   $patFile = Join-Path $env:USERPROFILE "pat.txt"
   if (Test-Path $patFile) {
     $Token = (Get-Content $patFile -Raw).Trim()
-    Remove-Item $patFile -Force
+    Remove-Item $patFile -Force -ErrorAction SilentlyContinue
   }
 }
 
-# Préparer le dossier
+function Invoke-Git {
+  param([string[]]$Args)
+  if ($Token) {
+    # Disable helper; pass Authorization header per-invocation
+    git -c credential.helper= -c "http.extraheader=Authorization: Bearer $Token" @Args
+  } else {
+    git -c credential.helper= @Args
+  }
+}
+
+# Prepare target dir
 New-Item -ItemType Directory -Force (Split-Path $AppDir) | Out-Null
 
-# Clone si nécessaire
+# Clone if needed (using token in URL once), then set clean origin URL (no creds stored)
 if (-not (Test-Path (Join-Path $AppDir ".git"))) {
-  Write-Host "Clonage initial dans $AppDir ..."
+  Write-Host "Cloning into $AppDir ..."
   if ($Token) {
-    git -c http.extraheader="Authorization: Bearer $Token" clone $RepoUrl $AppDir
+    $RepoUrlWithToken = $RepoUrl -replace '^https://', "https://x-access-token:$Token@"
+    git -c credential.helper= clone $RepoUrlWithToken $AppDir
+    Push-Location $AppDir
+    git remote set-url origin $RepoUrl
+    Pop-Location
   } else {
-    git clone $RepoUrl $AppDir
+    git -c credential.helper= clone $RepoUrl $AppDir
   }
 }
 
 Push-Location $AppDir
 try {
-  Write-Host "Mise à jour '$Branch' depuis origin ..."
-  if ($Token) {
-    git -c http.extraheader="Authorization: Bearer $Token" fetch --all --prune
-    git -c http.extraheader="Authorization: Bearer $Token" checkout $Branch
-    git -c http.extraheader="Authorization: Bearer $Token" reset --hard "origin/$Branch"
-  } else {
-    git fetch --all --prune
-    git checkout $Branch
-    git reset --hard "origin/$Branch"
-  }
+  Write-Host "Updating '$Branch' from origin ..."
+  Invoke-Git @('fetch','--all','--prune')
+  Invoke-Git @('checkout', $Branch)
+  Invoke-Git @('reset','--hard',"origin/$Branch")
+
   $sha = (git rev-parse --short HEAD).Trim()
-  Set-Content -Path (Join-Path $AppDir "DEPLOY_SHA.txt") -Value $sha
+  Set-Content -Path (Join-Path $AppDir 'DEPLOY_SHA.txt') -Value $sha
   Write-Host "Deploy OK -> $AppDir (HEAD=$sha)"
 }
 finally {
