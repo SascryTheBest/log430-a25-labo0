@@ -39,7 +39,7 @@ jobs:
           pytest src/tests
 
   deploy:
-    # needs: tests
+    needs: tests
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     steps:
@@ -47,28 +47,6 @@ jobs:
 
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
-
-      - name: Sanity check SSH
-        env:
-          HOST: ${{ secrets.DEPLOY_HOST }}
-          USER: ${{ secrets.DEPLOY_USER }}
-          PASS: ${{ secrets.SSH_PASSWORD }}
-          PORT: ${{ secrets.SSH_PORT }}
-        run: |
-          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22222}" "$USER@$HOST" "whoami"
-
-      - name: Copy deploy script + temp PAT file
-        env:
-          HOST: ${{ secrets.DEPLOY_HOST }}
-          USER: ${{ secrets.DEPLOY_USER }}
-          PASS: ${{ secrets.SSH_PASSWORD }}
-          PORT: ${{ secrets.SSH_PORT }}
-          PAT:  ${{ secrets.REPO_PAT }}   # <-- your secret (not starting with GITHUB_)
-        run: |
-          sshpass -p "$PASS" scp -P "${PORT:-22222}" -o StrictHostKeyChecking=no -v scripts/deploy_git_pull.ps1 "$USER@$HOST:~/deploy_git_pull.ps1"
-          printf '%s' "$PAT" > pat.txt
-          sshpass -p "$PASS" scp -P "${PORT:-22222}" -o StrictHostKeyChecking=no -v pat.txt "$USER@$HOST:~/pat.txt"
-          rm -f pat.txt
 
       - name: Run deploy (git clone/fetch/reset on Windows)
         env:
@@ -78,4 +56,4 @@ jobs:
           PORT: ${{ secrets.SSH_PORT }}
         run: |
           sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22222}" "$USER@$HOST" \
-            'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Assal\deploy_git_pull.ps1"'
+            'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Assal\apps\deploy_git_pull.ps1"'
