@@ -80,4 +80,4 @@ jobs:
           PORT: ${{ secrets.SSH_PORT }}
         run: |
           sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22}" "$USER@$HOST" \
-            'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\deploy_git_pull.ps1"'
+            'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& $env:USERPROFILE\deploy_git_pull.ps1"'
