@@ -39,14 +39,7 @@ def test_division_par_zero():
     assert my_calculator.division(5, 0) == "Erreur : division par zéro"
 
 """
-
-new test, changed script localisation
-
-plz work, im done
-un changement dans le code
 def test_donne_erreur():
     my_calculator = Calculator()
     assert my_calculator.division(5, 0) == "Ne remet pas ce texte"
 """
-
-# TODO: ajoutez les tests
