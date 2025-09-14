@@ -1,8 +1,8 @@
 # scripts/deploy_git_pull.ps1
-# Non-interactive deploy: clone once, then fetch/reset using a PAT without storing credentials.
+# Non-interactive deploy: clone once, then fetch/reset using PAT (no prompts, no storing creds).
 
 param(
-  [string]$Token = ""   # read from ~/pat.txt if not provided
+  [string]$Token = ""   # read from ~\pat.txt if not provided
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,7 +13,7 @@ $Branch  = "main"
 $AppDir  = "C:\Users\Assal\apps\log430-a25-labo0"
 # ---------------
 
-# Make git non-interactive; never prompt/persist creds
+# Make git non-interactive
 $env:GIT_TERMINAL_PROMPT = "0"
 $env:GCM_INTERACTIVE     = "Never"
 
@@ -26,41 +26,37 @@ if (-not $Token) {
   }
 }
 
-function Invoke-Git {
-  param([string[]]$Args)
-  if ($Token) {
-    # Disable helper; pass Authorization header per-invocation
-    git -c credential.helper= -c "http.extraheader=Authorization: Bearer $Token" @Args
-  } else {
-    git -c credential.helper= @Args
-  }
-}
-
-# Prepare target dir
+# Prepare parent dir
 New-Item -ItemType Directory -Force (Split-Path $AppDir) | Out-Null
 
-# Clone if needed (using token in URL once), then set clean origin URL (no creds stored)
+# Clone if needed (use token in URL once), then reset remote to clean URL
 if (-not (Test-Path (Join-Path $AppDir ".git"))) {
   Write-Host "Cloning into $AppDir ..."
   if ($Token) {
-    $RepoUrlWithToken = $RepoUrl -replace '^https://', "https://x-access-token:$Token@"
-    git -c credential.helper= clone $RepoUrlWithToken $AppDir
+    $RepoUrlWithToken = $RepoUrl -replace '^https://',"https://x-access-token:$Token@"
+    & git -c credential.helper= clone $RepoUrlWithToken $AppDir
     Push-Location $AppDir
-    git remote set-url origin $RepoUrl
+    & git remote set-url origin $RepoUrl
     Pop-Location
   } else {
-    git -c credential.helper= clone $RepoUrl $AppDir
+    & git -c credential.helper= clone $RepoUrl $AppDir
   }
 }
 
 Push-Location $AppDir
 try {
   Write-Host "Updating '$Branch' from origin ..."
-  Invoke-Git @('fetch','--all','--prune')
-  Invoke-Git @('checkout', $Branch)
-  Invoke-Git @('reset','--hard',"origin/$Branch")
+  if ($Token) {
+    & git -c credential.helper= -c "http.extraheader=Authorization: Bearer $Token" fetch --all --prune
+    & git -c credential.helper= checkout $Branch
+    & git -c credential.helper= -c "http.extraheader=Authorization: Bearer $Token" reset --hard "origin/$Branch"
+  } else {
+    & git -c credential.helper= fetch --all --prune
+    & git -c credential.helper= checkout $Branch
+    & git -c credential.helper= reset --hard "origin/$Branch"
+  }
 
-  $sha = (git rev-parse --short HEAD).Trim()
+  $sha = (& git rev-parse --short HEAD).Trim()
   Set-Content -Path (Join-Path $AppDir 'DEPLOY_SHA.txt') -Value $sha
   Write-Host "Deploy OK -> $AppDir (HEAD=$sha)"
 }

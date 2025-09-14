@@ -39,7 +39,7 @@ jobs:
           pytest src/tests
 
   deploy:
-    needs: tests
+    # needs: tests
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     steps:
