@@ -54,6 +54,8 @@ jobs:
           USER: ${{ secrets.DEPLOY_USER }}
           PASS: ${{ secrets.SSH_PASSWORD }}
           PORT: ${{ secrets.SSH_PORT }}
+          SCRIPT: ${{ secrets.DEPLOY_APP_DIR }}
         run: |
-          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22222}" "$USER@$HOST" \
-            'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Assal\apps\deploy_git_pull.ps1"'
+          # Build the remote command with the secret path. GitHub will mask it in logs.
+          REMOTE_CMD="C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${SCRIPT}\""
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -p "${PORT:-22222}" "$USER@$HOST" "$REMOTE_CMD"

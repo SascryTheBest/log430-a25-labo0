@@ -37,9 +37,3 @@ def test_division():
 def test_division_par_zero():
     my_calculator = Calculator()
     assert my_calculator.division(5, 0) == "Erreur : division par zéro"
-
-"""
-def test_donne_erreur():
-    my_calculator = Calculator()
-    assert my_calculator.division(5, 0) == "Ne remet pas ce texte"
-"""
